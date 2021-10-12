@@ -47,6 +47,14 @@ function [IDX, C, PROB, OUTPUT] = misodata(X, options)
 %            1  Iterative proccess converged;
 %            0  Number of iterations reached.
 %
+% References:
+% [1] de Paula, AN, de Oliveira, EJ, Honório, LM, de Oliveira, LW, Moraes, CA.
+% m-ISODATA: Unsupervised clustering algorithm to capture representative
+% scenarios in power systems. Int Trans Electr Energ Syst. 2021; 
+% 31(9):e13005. https://doi.org/10.1002/2050-7038.13005
+%
+% [2] m-ISODATA in Code Ocean repository. https://doi.org/10.24433/CO.1264423.v1
+%
 %   See also KMEANS, CLUSTER.
 
 tic  % Measuring elapsed time
