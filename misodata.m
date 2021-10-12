@@ -1,17 +1,18 @@
-function [groups, centr, prob, output] = misodata(p)
+function [IDX, C, PROB, OUTPUT] = misodata(X, options)
 % MISODATA is an unsupervised clustering algorithm to capture scenarios 
 % from historical series.
 %
-%   [ ... ] = MISODATA(p) partitions the points in the N-by-D data matrix
-%    in the selected .csv file into clusters. Where N is the number of data 
-%    points and D the dimension of the historical series. MISODATA captures
-%    the scenarios from historical series according to p. p is a structure 
-%    whose fields are:
-%       'FileSerie' - Name of .csv file containing the historical series.
+% IDX = MISODATA(X, options) partitions the points in the N-by-D data
+% matrix X into clusters. Where N is the number of data points and D the
+% dimension of the historical series. MISODATA returns an N-by-1 vector IDX
+% containing the cluster indices of each point. MISODATA captures the
+% scenarios from historical series according to options. 
+%
+% options is a structure whose fields are:
 %       'dMin' - the minimum allowed distance between the centroids.
 %       	Default value: 0.04
 %       'max_std' - the maximum allowed standard deviation of scenarios. 
-%       	Default value: 0.55*p.dMin 
+%       	Default value: 0.55*options.dMin 
 %       'pMin' - scenario's minimum allowed probability of occurence. 
 %       	Default value: 1e-10
 %       'SimName' - Name of the simulation.
@@ -33,157 +34,152 @@ function [groups, centr, prob, output] = misodata(p)
 %       'Display' - off, final or iter
 %       	Default value: iter.
 %
-%   [GROUPS, CENTR, PROB] = MISODATA(p) GROUPS returns the historical 
-%    series data points location in the CENTR K-by-N centroids matrix. Where
-%    K is the number of clusters obtained. PROB returns the probability of 
+%    [IDX, C] = MISODATA(___) returns the K cluster centroid locations 
+%    in the K-by-P matrix C. 
+%
+%    [IDX, C, PROB] = MISODATA(___) PROB returns the probability of 
 %    occurrence of the scenario associated with each centroid.
 %
-%   [GROUPS, CENTR, PROB, EXITFLAG] = MISODATA(p) returns an EXITFLAG
-%    that describes the exit condition. Possible values of EXITFLAG and the
-%    corresponding exit conditions are:
-%
-%       1  Iterative proccess converged.
-%   	0  Number of iterations reached.
+%    [IDX, C, PROB, OUTPUT] = MISODATA(___) returns the OUTPUT structure
+%    that describes the exit condition.
+%        ITER is the number of iterations.
+%        EXITFLAG conditions:
+%            1  Iterative proccess converged;
+%            0  Number of iterations reached.
 %
 %   See also KMEANS, CLUSTER.
 
 tic  % Measuring elapsed time
 %% Reading the data
-if ~any(strcmp(fieldnames(p), 'FileSerie'))
-    % error
-    error('ERROR: field p.FileSerie is mandatory in p structure!!!')
-end
-%
-load(p.FileSerie, 'data')
-[Nobs, nser] = size(data);  % Number of data points and number of series
+[Nobs, nser] = size(X);  % Number of data points and number of series
 %
 % Normalizing data
-base_data_1 = min(data, [], 1);
-base_data_2 = max(data, [], 1);
+base_data_1 = min(X, [], 1);
+base_data_2 = max(X, [], 1);
 for iser = 1:nser
-    data(:, iser) = (data(:, iser)-base_data_1(iser))/(base_data_2(iser)-base_data_1(iser));
+    X(:, iser) = (X(:, iser)-base_data_1(iser))/(base_data_2(iser)-base_data_1(iser));
 end
 %
 % Calculating unique observations in the series
-data_unique = unique(data,'rows');
+data_unique = unique(X,'rows');
 [Nobs_unique, ~] = size(data_unique);  % Number of unique observations
 %
 %% Parameters treatment
 % Use of dimensional correction factor
-if ~any(strcmp(fieldnames(p), 'UseDCF'))
+if ~any(strcmp(fieldnames(options), 'UseDCF'))
     % default value
-    p.UseDCF = true;
+    options.UseDCF = true;
 end
 %
 % Mminimum allowed distance between the centroids
-if ~any(strcmp(fieldnames(p), 'dMin'))
+if ~any(strcmp(fieldnames(options), 'dMin'))
     % default value
-    p.dMin = 0.04;
+    options.dMin = 0.04;
 end
 %
 % Applying the Dimensional correction factor
-if p.UseDCF
-    p.dMin = p.dMin*sqrt(nser);
+if options.UseDCF
+    options.dMin = options.dMin*sqrt(nser);
 end
 %
 % Maximum allowed standard deviation of scenarios
-if ~any(strcmp(fieldnames(p), 'max_std'))
+if ~any(strcmp(fieldnames(options), 'max_std'))
     % default value
-    p.max_std = p.dMin*0.55;
-elseif p.UseDCF
+    options.max_std = options.dMin*0.55;
+elseif options.UseDCF
     % Applying the Dimensional correction factor
-    p.max_std = p.max_std*sqrt(nser);  % Dimensional correction factor
+    options.max_std = options.max_std*sqrt(nser);  % Dimensional correction factor
 end
 %
 % Scenario's minimum allowed probability of occurence
-if ~any(strcmp(fieldnames(p), 'pMin'))
+if ~any(strcmp(fieldnames(options), 'pMin'))
     % default value
-    p.pMin = 1e-10;
+    options.pMin = 1e-10;
 end
 %
 % Simulation name
-if ~any(strcmp(fieldnames(p), 'SimName'))
+if ~any(strcmp(fieldnames(options), 'SimName'))
     % default value
-    p.SimName = 'none';
+    options.SimName = 'none';
 end
 %
 % Number of iterations
-if ~any(strcmp(fieldnames(p), 'Niter'))
+if ~any(strcmp(fieldnames(options), 'Niter'))
     % default value
-    p.Niter = 100;
+    options.Niter = 100;
 end
 %
 % Path for results
-if ~any(strcmp(fieldnames(p), 'ResultsPath'))
+if ~any(strcmp(fieldnames(options), 'ResultsPath'))
     % default value
-    p.ResultsPath = [];  % Current folder
+    options.ResultsPath = [];  % Current folder
 end
 %
 % Flag to plot two-dimensional graphs
-if ~any(strcmp(fieldnames(p), 'PlotFlag'))
+if ~any(strcmp(fieldnames(options), 'PlotFlag'))
     % default value
-    p.PlotFlag = false;
+    options.PlotFlag = false;
 end
 %
 % Flag to save scenarios data as a .csv file
-if ~any(strcmp(fieldnames(p), 'SaveFlag'))
+if ~any(strcmp(fieldnames(options), 'SaveFlag'))
     % default value
-    p.SaveFlag = false;
+    options.SaveFlag = false;
 end
 %
 % Flag to display results
-if ~any(strcmp(fieldnames(p), 'Display'))
+if ~any(strcmp(fieldnames(options), 'Display'))
     % default value
-    p.Display = 'iter';
+    options.Display = 'iter';
 end
 %
 % Maximum number of clusters.
-if ~any(strcmp(fieldnames(p), 'nCluMax'))
+if ~any(strcmp(fieldnames(options), 'nCluMax'))
     % default value
-    p.nCluMax = round(1/p.pMin);
-    if p.nCluMax > Nobs_unique
-        p.nCluMax = Nobs_unique;
+    options.nCluMax = round(1/options.pMin);
+    if options.nCluMax > Nobs_unique
+        options.nCluMax = Nobs_unique;
     end
 else
-    if p.nCluMax > Nobs_unique
-        p.nCluMax = Nobs_unique;
+    if options.nCluMax > Nobs_unique
+        options.nCluMax = Nobs_unique;
         disp(['nCluMax greater than number of unique observations and was seted to ' num2str(Nobs_uniqe) '!!!'])
     end
 end
 %
 % Initial number of clusters.
-if ~any(strcmp(fieldnames(p), 'nClu0'))
+if ~any(strcmp(fieldnames(options), 'nClu0'))
     % default value
-    p.nClu0 = 1;
+    options.nClu0 = 1;
 else
-    if p.nClu0 > p.nCluMax
-        p.nClu0 = p.nCluMax;
-        disp(['nClu0 greater than maximum number of clusters and was seted to ' num2str(p.nCluMax) '!!!'])
-    elseif p.nClu0 < 1
-        p.nClu0 = 1;
+    if options.nClu0 > options.nCluMax
+        options.nClu0 = options.nCluMax;
+        disp(['nClu0 greater than maximum number of clusters and was seted to ' num2str(options.nCluMax) '!!!'])
+    elseif options.nClu0 < 1
+        options.nClu0 = 1;
         disp('nClu0 smaller than 1 and was seted to 1!!!')
     end
 end
 %
-% output structure
-output = struct();
-output.exitflag = 0;
-output.iter = 0;
+% OUTPUT structure
+OUTPUT = struct();
+OUTPUT.exitflag = 0;
+OUTPUT.iter = 0;
 %
 %% m-ISODATA main program
 %
 % Minimum number of data per cluster
-nmin = round(p.pMin*Nobs);
+nmin = round(options.pMin*Nobs);
 if nmin == 0
     nmin = 1;
 end
 %
 % Extracting initial clusters (as forecasted)
-nClu = p.nClu0;
+nClu = options.nClu0;
 centrF = data_unique(randperm(Nobs_unique,nClu)', :);
 %
 % Historic of number of clusters
-nClu_hist = zeros(p.Niter, 1);
+nClu_hist = zeros(options.Niter, 1);
 %
 % Stop criteria flags and counters
 countSTOP = 0;
@@ -195,7 +191,7 @@ hist_desv = 1;
 iter_odd = false;
 %
 % main loop
-if strcmp(p.Display, 'iter')
+if strcmp(options.Display, 'iter')
     disp(' ')
 end
 while true
@@ -205,14 +201,14 @@ while true
     if countSTOP == 0
         %
         % Grouping data into clusters
-        [groups, clucount] = GroupData(data, centrF);
+        [IDX, clucount] = GroupData(X, centrF);
         %
         % Erasing empty clusters
         if any(clucount==0)
             empty_idx = find(clucount==0)';
             c = 0;
             for idx = empty_idx
-                groups(groups>idx-c) = groups(groups>idx-c)-1;
+                IDX(IDX>idx-c) = IDX(IDX>idx-c)-1;
                 c = c+1;
             end
             nClu = nClu-length(empty_idx);
@@ -228,30 +224,30 @@ while true
         end
     end
     
-    if strcmp(p.Display, 'iter')
+    if strcmp(options.Display, 'iter')
         disp(['iter: ' num2str(iter) ' | nClu: ' num2str(nClu)]);
     end
     
     % Verifying stop criteria
-    if iter == p.Niter || countSTOP == 3 || (flagOSCI >= 4 && ~iter_odd) || (hist_desv < 0.05 && ~iter_odd)
+    if iter == options.Niter || countSTOP == 3 || (flagOSCI >= 4 && ~iter_odd) || (hist_desv < 0.05 && ~iter_odd)
         %
         %
         % Calculating centroids
-        centr = CalcCentr(groups, data, clucount);
-        if p.PlotFlag
+        C = CalcCentr(IDX, X, clucount);
+        if options.PlotFlag
             if nser == 2
-                plot_groups(nClu, nser, data, groups, p)
+                plot_groups(nClu, nser, X, IDX, options)
             else
                 disp('Warning: "plot_flag = true" only available for two-dimensional series')
             end
         end
         %
         % Defining exitflag
-        output.iter = iter;
-        if iter == p.Niter
-            output.exitflag = 0;  % Número de iterações atingido
+        OUTPUT.iter = iter;
+        if iter == options.Niter
+            OUTPUT.exitflag = 0;  % Número de iterações atingido
         else
-            output.exitflag = 1;  % Parada por estabilização
+            OUTPUT.exitflag = 1;  % Parada por estabilização
         end
         %
         % Exit m-ISODATA program
@@ -267,16 +263,16 @@ while true
     end
     %
     % Calculating centroids
-    centr = CalcCentr(groups, data, clucount);
+    C = CalcCentr(IDX, X, clucount);
     %
     % Calculating distances between centroids and data and obtaining medoids
-    [clu_desv, clu_bevec] = CalcDesv(data, groups, clucount);
+    [clu_desv, clu_bevec] = CalcDesv(X, IDX, clucount);
     %
     % Verifying if iteration is odd or even
-    if iter_odd && iter ~= p.Niter
+    if iter_odd && iter ~= options.Niter
         %
         %  Accessing split function
-        [centrF, nClu] = Split(clu_desv, clu_bevec, groups, centr, nmin, p);
+        [centrF, nClu] = Split(clu_desv, clu_bevec, IDX, C, nmin, options);
         %
         % Updating stop criterion
         if nClu == nClu_old_s
@@ -288,7 +284,7 @@ while true
     else
         %
         %  Accessing merge function
-        [centrF, nClu] = Merge(centr, nClu, p);
+        [centrF, nClu] = Merge(C, nClu, options);
         %
         % Updating stop criterion
         if nClu == nClu_old_m
@@ -308,39 +304,40 @@ while true
     %
 end
 %
-%% Scenarios output
-if strcmp(p.Display, 'iter')  || strcmp(p.Display, 'final')
+%% Scenarios OUTPUT
+if strcmp(options.Display, 'iter')  || strcmp(options.Display, 'final')
     disp(['iter: ' num2str(iter)]);
 end
 %
 % Returning data ranges
 for iser = 1:nser
-    centr(:, iser) = centr(:, iser)*(base_data_2(iser)-base_data_1(iser))+base_data_1(iser);
+    C(:, iser) = C(:, iser)*(base_data_2(iser)-base_data_1(iser))+base_data_1(iser);
 end
 %
 % Calculating the probabilities of occurrence
-prob = clucount/Nobs;
+PROB = clucount/Nobs;
 %
 % Saving data in the .csv file
-if p.SaveFlag
+if options.SaveFlag
     %
     % Scenarios table
-    tbl = [centr prob];
+    tbl = [C PROB];
     %
     % Sorting scenarios into decreasing probabilities
     [pB,I] = sort(tbl(:, nser+1),'descend');
     tblB = [tbl(I, 1:nser) pB];
-    writetable(table(tblB),[p.ResultsPath p.SimName '.csv'],'WriteVariableNames', false)
+    writetable(table(tblB),[options.ResultsPath options.SimName '.csv'],'WriteVariableNames', false)
+    disp(['The results were saved in ' options.ResultsPath options.SimName '.mat'])
 end
 %
 %
 end
 %
 %% Function to group data into clusters
-function [groups, clucount] = GroupData(data, centrF)
+function [IDX, clucount] = GroupData(data, centrF)
 [Nobs, ~] = size(data);
 [nClu, ~] = size(centrF);
-groups = zeros(Nobs, 1);
+IDX = zeros(Nobs, 1);
 clucount = zeros(nClu, 1);
 %
 for iobs = 1:Nobs
@@ -352,7 +349,7 @@ for iobs = 1:Nobs
             kclu = iclu;
         end
     end
-    groups(iobs) = kclu;
+    IDX(iobs) = kclu;
     clucount(kclu) = clucount(kclu)+1;
 end
 %
@@ -360,7 +357,7 @@ end
 end
 %
 %% Function to calculate distances between centroids and data
-function [clu_desv, clu_bevec] = CalcDesv(data, groups, clucount)
+function [clu_desv, clu_bevec] = CalcDesv(data, IDX, clucount)
 [~, dim] = size(data);
 nClu = length(clucount);
 %
@@ -370,7 +367,7 @@ clu_bevec = zeros(nClu, dim);
 % Calculating standard deviations
 for iclu = 1:nClu
     if clucount(iclu) > 0
-        idata = data(groups==iclu, :);
+        idata = data(IDX==iclu, :);
         %
         if clucount(iclu) > 1
             %
@@ -401,16 +398,16 @@ end
 end
 %
 %% Calculating centroids
-function centr = CalcCentr(groups, data, clucount)
+function C = CalcCentr(IDX, data, clucount)
 [~, dim] = size(data);
 nClu = length(clucount);
-centr = zeros(nClu, dim);
+C = zeros(nClu, dim);
 for iclu = 1:nClu
-    idata = data(groups==iclu, :);
+    idata = data(IDX==iclu, :);
     if clucount(iclu) == 1
-        centr(iclu, :) = idata;
+        C(iclu, :) = idata;
     else
-        centr(iclu, :) = mean(idata);
+        C(iclu, :) = mean(idata);
     end
 end
 %
@@ -418,7 +415,7 @@ end
 end
 %
 %% Merge function
-function [centrF, nClu] = Merge(centr, nClu, p)
+function [centrF, nClu] = Merge(C, nClu, options)
 merge_clu = zeros(round(nClu/2), 2);
 merge_cont = 0;
 is_merge = zeros(nClu, 1);
@@ -433,13 +430,13 @@ for iclu = 1:nClu
             continue
         end
         %
-        d = norm(centr(iclu, :)-centr(jclu, :));
+        d = norm(C(iclu, :)-C(jclu, :));
         if d<dmax
             dmax = d;
             jmerge = jclu;
         end
     end
-    if dmax < p.dMin
+    if dmax < options.dMin
         % Merging clusters
         if is_merge(jmerge) == 0 && jmerge > iclu
             merge_cont = merge_cont+1;
@@ -455,39 +452,39 @@ end
 for imrg = 1:merge_cont
     iclu = merge_clu(imrg, 1);
     jclu = merge_clu(imrg, 2);
-    centr(iclu, :) = (centr(iclu, :)+centr(jclu, :))/2;
+    C(iclu, :) = (C(iclu, :)+C(jclu, :))/2;
 end
 %
-centr(logical(is_merge), :) = [];
+C(logical(is_merge), :) = [];
 %
 % Forecasted centroids
-centrF = centr;
+centrF = C;
 nClu = nClu-sum(is_merge);
 %
 %
 end
 %
 %% Split function
-function [centrF, nClu] = Split(clu_desv, clu_bevec, groups, centr, nmin, p)
-[nClu, dim] = size(centr);
+function [centrF, nClu] = Split(clu_desv, clu_bevec, IDX, C, nmin, options)
+[nClu, dim] = size(C);
 nc_counter = 0;  % Counter of new clusters
-nc_max = p.nCluMax-nClu;  % Maximum number of new clusters
+nc_max = options.nCluMax-nClu;  % Maximum number of new clusters
 if nc_max > 2*nClu
     nc_max = nClu;
 end
 clusters_tmp = zeros(nc_max, dim);
 
 if nc_max > 0
-    idx_grupos = unique(groups);
+    idx_grupos = unique(IDX);
     for iclu = 1:nClu
         idx = idx_grupos(iclu);
-        Nparobs = sum(groups==idx);
-        if clu_desv(iclu) > p.max_std && Nparobs > 2*nmin
+        Nparobs = sum(IDX==idx);
+        if clu_desv(iclu) > options.max_std && Nparobs > 2*nmin
             nc_counter = nc_counter+1;
             %
             % New clusters
-            clusters_tmp(nc_counter, :) = centr(iclu, :)+clu_desv(iclu)*clu_bevec(iclu, :);
-            centr(iclu, :) = centr(iclu, :)-clu_desv(iclu)*clu_bevec(iclu, :);
+            clusters_tmp(nc_counter, :) = C(iclu, :)+clu_desv(iclu)*clu_bevec(iclu, :);
+            C(iclu, :) = C(iclu, :)-clu_desv(iclu)*clu_bevec(iclu, :);
         end
         %
         if nc_counter == nc_max
@@ -497,7 +494,7 @@ if nc_max > 0
 end
 %
 % Forecasted centroids
-centrF = [centr; clusters_tmp(1:nc_counter, :)];
+centrF = [C; clusters_tmp(1:nc_counter, :)];
 nClu = nClu+nc_counter;
 %
 %
