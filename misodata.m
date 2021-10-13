@@ -335,7 +335,7 @@ if options.SaveFlag
     [pB,I] = sort(tbl(:, nser+1),'descend');
     tblB = [tbl(I, 1:nser) pB];
     writetable(table(tblB),[options.ResultsPath options.SimName '.csv'],'WriteVariableNames', false)
-    disp(['The results were saved in ' options.ResultsPath options.SimName '.mat'])
+    disp(['The results were saved in ' options.ResultsPath options.SimName '.csv'])
 end
 %
 %
