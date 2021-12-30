@@ -2,10 +2,12 @@ function [IDX, C, PROB, OUTPUT] = misodata(X, options)
 % MISODATA is an unsupervised clustering algorithm to capture scenarios 
 % from historical series.
 %
-% IDX = MISODATA(X, options) partitions the points in the N-by-D data
+% IDX = MISODATA(X) partitions the points in the N-by-D data
 % matrix X into clusters. Where N is the number of data points and D the
 % dimension of the historical series. MISODATA returns an N-by-1 vector IDX
-% containing the cluster indices of each point. MISODATA captures the
+% containing the cluster indices of each point.
+%
+% IDX = MISODATA(X, options) MISODATA captures the
 % scenarios from historical series according to options. 
 %
 % options is a structure whose fields are:
@@ -58,6 +60,10 @@ function [IDX, C, PROB, OUTPUT] = misodata(X, options)
 %   See also KMEANS, CLUSTER.
 
 tic  % Measuring elapsed time
+%% Input args
+if nargin == 1
+    options = struct();
+end
 %% Reading the data
 [Nobs, nser] = size(X);  % Number of data points and number of series
 %
