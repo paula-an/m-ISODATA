@@ -71,6 +71,9 @@ end
 base_data_1 = min(X, [], 1);
 base_data_2 = max(X, [], 1);
 for iser = 1:nser
+    if all(X(:, iser)==0)
+        continue
+    end
     X(:, iser) = (X(:, iser)-base_data_1(iser))/(base_data_2(iser)-base_data_1(iser));
 end
 %
